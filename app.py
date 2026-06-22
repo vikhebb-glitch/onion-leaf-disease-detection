@@ -2,7 +2,7 @@
 import streamlit as st
 import numpy as np
 from PIL import Image
-import tensorflow as tf
+import tflite_runtime.interpreter as tflite
 
 class_names = ['downy_mildew', 'healthy', 'leaf_blight', 'purple_blotch']
 

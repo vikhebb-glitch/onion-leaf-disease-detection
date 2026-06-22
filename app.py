@@ -1,19 +1,19 @@
 import streamlit as st
 import numpy as np
 from PIL import Image
-import tflite_runtime.interpreter as tflite
+import tensorflow as tf
+import urllib.request
+import os
 
-class_names = [
-    'downy_mildew',
-    'healthy',
-    'leaf_blight',
-    'purple_blotch'
-]
+class_names = ['downy_mildew', 'healthy', 'leaf_blight', 'purple_blotch']
 
-interpreter = tflite.Interpreter(
-    model_path="onion_leaf_cnn_model_quant.tflite"
-)
+# 🔥 Download model from GitHub raw (safe method)
+model_url = "https://github.com/vikhebb-glitch/onion-leaf-disease-detection/raw/main/onion_leaf_cnn_model_quant.tflite"
+model_path = "model.tflite"
 
+urllib.request.urlretrieve(model_url, model_path)
+
+interpreter = tf.lite.Interpreter(model_path=model_path)
 interpreter.allocate_tensors()
 
 input_details = interpreter.get_input_details()
@@ -21,49 +21,23 @@ output_details = interpreter.get_output_details()
 
 st.title("Onion Leaf Disease Detection")
 
-st.markdown("""
-### Research Scholar
-**Bhausaheb Bhaskar Vikhe**
+uploaded_file = st.file_uploader("Upload Image")
 
-### Under the Guidance of
-**Dr. Purushottam Patil**
-
-### Sandip University Campus, Nashik
-""")
-
-uploaded_file = st.file_uploader(
-    "Choose onion leaf image",
-    type=["jpg", "jpeg", "png"]
-)
-
-if uploaded_file is not None:
-
+if uploaded_file:
     img = Image.open(uploaded_file).convert("RGB")
-    st.image(img, caption="Uploaded Image")
+    st.image(img)
 
-    img = img.resize((224, 224))
+    img = img.resize((224,224))
+    img = np.array(img)/255.0
+    img = np.expand_dims(img, axis=0)
 
-    img_array = np.array(img, dtype=np.float32)
-    img_array = img_array / 255.0
-    img_array = np.expand_dims(img_array, axis=0)
-
-    interpreter.set_tensor(
-        input_details[0]['index'],
-        img_array
-    )
-
+    interpreter.set_tensor(input_details[0]['index'], img)
     interpreter.invoke()
 
-    prediction = interpreter.get_tensor(
-        output_details[0]['index']
-    )
+    prediction = interpreter.get_tensor(output_details[0]['index'])
 
-    predicted_class = np.argmax(prediction)
+    result = class_names[np.argmax(prediction)]
+    conf = np.max(prediction)*100
 
-    confidence = float(np.max(prediction)) * 100
-
-    result = class_names[predicted_class]
-
-    st.subheader("Prediction Result")
-    st.success(f"Detected Disease: {result}")
-    st.info(f"Confidence: {confidence:.2f}%")
+    st.success(result)
+    st.info(f"{conf:.2f}%")
